@@ -1,12 +1,7 @@
-import os
-import sys
-from bitarray import bitarray
-from matplotlib import cm
-from matplotlib import colors as mcolors
-from matplotlib import colorbar as mcolorbar
+__all__ = ["recombine_analysis", "biofile_func"]
 
-from recombination_analysis import gen_ref_gene_dict
-from recombination_analysis import gen_ref_gene_dict_inter
-from recombination_analysis import determine_recombine_bidirect
-from recombination_analysis import draw_bidirect_gene_assign
-from recombination_analysis import draw_gene_assign_dotplo
+from .recombine_analysis import gen_ref_gene_dict
+from .recombine_analysis import gen_ref_gene_dict_inter
+from .recombine_analysis import determine_recombine_bidirect
+from .recombine_analysis import draw_bidirect_gene_assign
+from .recombine_analysis import draw_gene_assign_dotplot

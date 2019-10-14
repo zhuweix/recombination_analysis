@@ -1,3 +1,6 @@
 *ipynb
-test_data/*
+test*
 *pyc*
+dist/
+*egg-info/
+build/

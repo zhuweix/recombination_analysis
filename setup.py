@@ -1,11 +1,11 @@
-from setuptools import setup
+import setuptools 
 
 with open("README.md", "r") as filep:
     long_description = filep.read()
 
-setup(
+setuptools.setup(
     name='Recombination_analysis',
-    version='0.1',
+    version='0.1.4',
     description='Analyze recombination events using kmers',
     url='https://github.com/zhuweix/recombination_analysis',
     author='Zhuwei Xu',
@@ -14,4 +14,9 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",      
     packages=setuptools.find_packages(),
-    zip_safe=False)
+    install_requires=[
+        'matplotlib',
+        'bitarray',
+        'numpy'],
+    zip_safe=False,
+    python_requires='>=3.6')

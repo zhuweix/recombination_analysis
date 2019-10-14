@@ -1,11 +1,19 @@
+from .biofile_func import simple_fasta_load
+import os
+import sys
+from bitarray import bitarray
+from matplotlib import cm
+from matplotlib import colors as mcolors
+from matplotlib import colorbar as mcolorbar
+from matplotlib import pyplot as plt
+import numpy as np
 
 def gen_ref_gene_dict(fn: str, window=20):
     genome = simple_fasta_load(fn)
     gene_id = {}
     total = len(genome)
     rkmer_dict = {}
-    test  = total * bitarray('0')
-    test[0] = True
+
     for i, g in enumerate(sorted(genome.items())):
         name, seq = g
         seq = seq.upper()
@@ -25,8 +33,7 @@ def gen_ref_gene_dict_inter(genome: dict, window=20):
     gene_id = {}
     total = len(genome)
     rkmer_dict = {}
-    test  = total * bitarray('0')
-    test[0] = True
+
     for i, g in enumerate(sorted(genome.items())):
         name, seq = g
         seq = seq.upper()
