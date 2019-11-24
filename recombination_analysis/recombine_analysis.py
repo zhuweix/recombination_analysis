@@ -6,6 +6,7 @@ from matplotlib import cm
 from matplotlib import colors as mcolors
 from matplotlib import colorbar as mcolorbar
 from matplotlib import pyplot as plt
+from matplotlib import patches as mpatches
 import numpy as np
 
 
@@ -246,8 +247,8 @@ def draw_bidirect_gene_assign(assign_path, rgene_id, gene, length,
     plt.close()
 
 
-def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
-                             figname: str, qseq: str, rseqs: dict, oseq: str, oname: str,
+def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str, rkmer_dict: str,
+                             figname: str, qseq: str, rseqs: dict, oseq: str, oname: str, 
                              min_rec: int, top=0, ksize=30):
 
     assigned_ref_ids = np.nonzero(assign_path[0])[0]
@@ -261,19 +262,19 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
     ref_homo_locations = {}
     self_locations = []
     rec_locations = []
-    homo_locations = []
+    homo_locations = []  
     self_id = [i for i, name in assigned_ref_gene.items() if name == gene][0]
     total = len(assigned_ref_ids)
     length = len(qseq)
-
+    
     for i, p in enumerate(assign_path[1:]):
         cur_start, cur_end, cur_assign = p
         cur_id1 = [assigned_ref_ids[id_]
-                   for id_ in np.nonzero(cur_assign[0])[0]]
+                  for id_ in np.nonzero(cur_assign[0])[0]]
         cur_id2 = None
         if cur_assign[1]:
             cur_id2 = [assigned_ref_ids[id_]
-                       for id_ in np.nonzero(cur_assign[1])[0]]
+                      for id_ in np.nonzero(cur_assign[1])[0]]
 
         if not cur_id2:
             if self_id in cur_id1:
@@ -303,10 +304,17 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
     if not ref_rec_length:
         return
 
+    # Generate Kmer from ortholog
+    okmer_dict = {}
+    for i in range(len(oseq) - ksize + 1):
+        kmer = oseq[i: i+ ksize]
+        okmer_dict.setdefault(kmer, [])
+        okmer_dict[kmer].append(i)    
+    
     # Draw self-matrix
     fig = plt.figure(figsize=(6.5, 6.5), dpi=300)
     plt.xlim(0, length)
-    plt.ylim(0, length)
+    plt.ylim(0, length)    
     p = 0
     kdict = {}
     for i in range(len(qseq) - ksize + 1):
@@ -323,6 +331,12 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
     homo_y = []
     all_x = []
     all_y = []
+    anchor_x = []
+    anchor_y = []
+    for kmer, locs in kdict.items():
+        if kmer in rkmer_dict and kmer not in okmer_dict:
+            anchor_x.extend(locs * len(locs))
+            anchor_y.extend([l for l in locs for m in locs])
     for locs in kdict.values():
         sloc = []
         rloc = []
@@ -343,47 +357,44 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
         all_y.extend([u for u in locs for v in locs])
     plt.scatter(all_x, all_y, s=.5, color='lightsteelblue')
     plt.scatter(homo_x, homo_y, color='cyan', s=.5)
-    plt.scatter(self_x, self_y, color='blue', s=.5, label='Non-recombined')
+    plt.scatter(self_x, self_y, color='blue', s=.5)
     plt.scatter(rec_x, rec_y, color='orange', s=.5)
+    plt.scatter(anchor_x, anchor_y, color='red', s=.5)
     plt.xlabel('{} (nt)'.format(gene))
     plt.ylabel('{} (nt)'.format(gene))
+    lan = mpatches.Patch(color='red', label='Recombined kmer')    
     lrec = mpatches.Patch(color='orange', label='Recombined region')
     lhomo = mpatches.Patch(color='cyan', label='Homologous flanking region')
     lnon = mpatches.Patch(color='blue', label='Non-recombined region')
-    lo = mpatches.Patch(color='lightsteelblue', label='Other')
-    plt.legend(handles=[lrec, lhomo, lnon, lo], loc=2, fontsize=9)
+    lo = mpatches.Patch(color='lightsteelblue', label='Other')      
+    plt.legend(handles=[lan, lrec, lhomo, lnon, lo], loc=2, fontsize=9)
     plt.tight_layout()
     plt.savefig('%s.0.png' % figname)
     plt.close()
 
     # Draw others
-    # Generate Kmer from ortholog
-    okmer_dict = {}
-    for i in range(len(oseq) - ksize + 1):
-        kmer = oseq[i: i + ksize]
-        okmer_dict.setdefault(kmer, [])
-        okmer_dict[kmer].append(i)
 
+    
     for pid, (rid, _) in enumerate(ref_rec_length, 1):
         # recombined kmers
-        rec_kmer_dict = {}
+        rec_kmer_dict = {}        
         rec_anchor_dict = {}
         rname = assigned_ref_gene[rid]
         rseq = rseqs[rname]
         ref_rec = ref_locations[rid]
-
+        
         ref_dict = {}
         # ref kmer dict
         for i in range(len(rseq) - ksize + 1):
             kmer = rseq[i: i + ksize]
             ref_dict.setdefault(kmer, [])
             ref_dict[kmer].append(i)
-
+        
         # Obtain kmers from query
         # recombined kmer
         for reg in ref_rec:
             for i in range(reg[0], reg[1] + 1):
-                kmer = qseq[i: i + ksize]
+                kmer = qseq[i: i+ ksize]
                 if kmer in ref_dict:
                     if kmer not in okmer_dict:
                         rec_anchor_dict.setdefault(kmer, [])
@@ -408,7 +419,7 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
                 qloc = rec_anchor_dict[kmer]
                 rloc = ref_dict[kmer]
                 an_x.extend(rloc * len(qloc))
-                an_y.extend([p for p in qloc for q in rloc])
+                an_y.extend([p for p in qloc for q in rloc])        
         for kmer in kdict:
             if kmer in rec_kmer_dict:
                 qloc = rec_kmer_dict[kmer]
@@ -423,17 +434,17 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
                 y_pos.extend([p for p in qloc for q in rloc])
         plt.scatter(x_pos, y_pos, color='grey', s=.5)
         plt.scatter(rec_x, rec_y, color='orange', s=.5)
-        plt.scatter(an_x, an_y, color='red', s=.5)
+        plt.scatter(an_x, an_y, color='red', s=.5)        
         plt.xlabel('{} (nt)'.format(rname))
         plt.ylabel('{} (nt)'.format(gene))
-        lanchor = mpatches.Patch(color='red', label='Recombined kmer')
+        lanchor = mpatches.Patch(color='red', label='Recombined kmer')        
         lrec = mpatches.Patch(color='orange', label='Recombined region')
         lhomo = mpatches.Patch(color='grey', label='Shared region')
         plt.legend(handles=[lanchor, lrec, lhomo], loc=2, fontsize=9)
         plt.tight_layout()
         plt.savefig('{}.{}.{}.a.png'.format(figname, pid, rname))
         plt.close()
-
+        
         # Query-ortholog
         fig = plt.figure(figsize=(6.5, 6.5), dpi=300)
         plt.xlim(0, max_size)
@@ -455,7 +466,7 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
         plt.tight_layout()
         plt.savefig('{}.{}.{}.b.png'.format(figname, pid, rname))
         plt.close()
-
+        
         # Ref-ref
         fig = plt.figure(figsize=(6.5, 6.5), dpi=300)
         plt.xlim(0, max_size)
@@ -470,7 +481,7 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
             if kmer in rec_anchor_dict:
                 qloc = ref_dict[kmer]
                 an_x.extend(qloc * len(qloc))
-                an_y.extend([p for p in qloc for q in qloc])
+                an_y.extend([p for p in qloc for q in qloc])                
             if kmer in rec_kmer_dict:
                 qloc = ref_dict[kmer]
                 rec_x.extend(qloc * len(qloc))
@@ -478,15 +489,16 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str,
             else:
                 qloc = ref_dict[kmer]
                 x_pos.extend(qloc * len(qloc))
-                y_pos.extend([p for p in qloc for q in qloc])
+                y_pos.extend([p for p in qloc for q in qloc])                
+
 
         plt.scatter(x_pos, y_pos, color='lightsteelblue', s=.5)
         plt.scatter(rec_x, rec_y, color='orange', s=.5)
-        plt.scatter(an_x, an_y, color='red', s=1)
+        plt.scatter(an_x, an_y, color='red', s=1)        
         plt.xlabel('{} (nt)'.format(rname))
         plt.ylabel('{} (nt)'.format(rname))
-
-        lanchor = mpatches.Patch(color='red', label='Recombined kmer')
+        
+        lanchor = mpatches.Patch(color='red', label='Recombined kmer')        
         lrec = mpatches.Patch(color='orange', label='Recombined region')
         lhomo = mpatches.Patch(color='lightsteelblue', label='Other')
         plt.legend(handles=[lanchor, lrec, lhomo], loc=2, fontsize=9)
