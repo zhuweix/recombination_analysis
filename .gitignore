@@ -4,3 +4,6 @@ test*
 dist/
 *egg-info/
 build/
+*.py
+gen_latex.py
+

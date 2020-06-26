@@ -53,11 +53,16 @@ def gen_ref_gene_dict_inter(genome: dict, window=20):
     return rkmer_dict, gene_id
 
 
-def bidirect_assign_path(seq: str, rkmer_dict: dict, window: int, step: int):
+def bidirect_assign_path(seq: str, rkmer_dict: dict, window: int, step: int, prefer_refid=None):
     assign_path_forward = []
     last_i = 0
     assign_path_backward = []
     first_i = 0
+    ref_size = len(next(iter(rkmer_dict.values())))
+    
+    if prefer_refid is not None:
+        prefer_arrary = len(ref_size) * bbitarray('0')
+        prefer_arrary[prefer_refid] = True
     for i in range(0, len(seq) - window + 1, step):
         kmer = seq[i: i + window]
         if kmer not in rkmer_dict:
@@ -72,6 +77,10 @@ def bidirect_assign_path(seq: str, rkmer_dict: dict, window: int, step: int):
         if any(orth):
             assign_path_forward[-1][1] = orth
         else:
+            # Filter other assigned refs if there is an preferred reference in the assignment
+            if prefer_refid is not None:
+                if any(prefer_array & assign_no):
+                    assign_no = prefer_array
             assign_path_forward.append([i, assign_no])
 
     for p in assign_path_forward[1:]:
@@ -79,7 +88,7 @@ def bidirect_assign_path(seq: str, rkmer_dict: dict, window: int, step: int):
     assign_path_forward.append((last_i, None))
 
     for i in range(len(seq) - window + 1, -1,  -step):
-        kmer = seq[i: i + window]
+        kmer = seq[i: i + window]       
         if kmer not in rkmer_dict:
             continue
         first_i = i
@@ -92,6 +101,10 @@ def bidirect_assign_path(seq: str, rkmer_dict: dict, window: int, step: int):
         if any(orth):
             assign_path_backward[-1][1] = orth
         else:
+            # Filter other assigned refs if there is an preferred reference in the assignment
+            if prefer_refid is not None:
+                if any(prefer_array & assign_no):
+                    assign_no = prefer_array            
             assign_path_backward.append([i, assign_no])
 
     for p in assign_path_backward[1:]:
@@ -173,10 +186,10 @@ def count_bidirect_kmer_evidence(seq, rkmer_dict, window, assign_path):
     return share_cur_ratio, share_cur_count
 
 
-def determine_recombine_bidirect(seq: str, rkmer_dict: dict, window: int, step: int):
+def determine_recombine_bidirect(seq: str, rkmer_dict: dict, window: int, step: int, prefer_refid=None):
     seq = seq.upper()
     ap_forward, ap_backward = bidirect_assign_path(
-        seq, rkmer_dict, window, step)
+        seq, rkmer_dict, window, step, prefer_refid=None)
     if not ap_forward:
         return None, None, None
     if ap_forward == [(0, None)]:
@@ -505,3 +518,279 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str, rkmer_dict:
         plt.tight_layout()
         plt.savefig('{}.{}.{}.c.png'.format(figname, pid, rname))
         plt.close()
+
+
+
+
+
+def draw_recombine_compare(qgene: str, qseq: str, rseq: str, ksize: int,
+                           rec_dict: dict, qstrain: str, rstrain: str, fig_prefix='out'):
+    qseq = qseq.upper()
+    rseq = rseq.upper()
+    kmer_dict = {}
+    for i in range(len(qseq) - ksize + 1):
+        kmer = qseq[i: i + ksize]
+        kmer_dict.setdefault(kmer, [[], []])
+        kmer_dict[kmer][0].append(i)
+    for i in range(len(rseq) - ksize + 1):
+        kmer = rseq[i: i + ksize]
+        if kmer not in kmer_dict:
+            continue
+        kmer_dict[kmer][1].append(i)
+    # rec points
+    rec_point = {}
+    for qlocs, rgene in rec_dict.items():
+        rec_point.setdefault(rgene, [])
+        tmp = {}
+        for (qs, qe) in qlocs:
+            for i in range(qs, qe):
+                kmer = qseq[i: i + ksize]
+                tmp.setdefault(kmer, [])
+                tmp[kmer].append(i)
+            for pos in tmp.values():
+                rec_point[rgene].append(pos)
+    # Draw figure
+    plt.figure(figsize=(6, 5), dpi=300)
+    self_dot = [[], []]
+    for pos, _ in kmer_dict.values():
+        self_dot[0].extend(pos * len(pos))
+        self_dot[1].extend([p for p in pos for q in pos])
+    plt.scatter(self_dot[0], self_dot[1], s=2,
+                color='grey', edgecolor='None', label='Self')
+    del self_dot
+    for rgene, rpos in rec_point.items():
+        tmp = [[], []]
+        for pos in rpos:
+            tmp[0].extend(pos * len(pos))
+            tmp[1].extend([p for p in pos for q in pos])
+        plt.scatter(tmp[0], tmp[1], s=4, edgecolor='None', label=rgene)
+    plt.legend(bbox_to_anchor=(1.04, 1), borderaxespad=0, markerscale=2)
+    plt.xlabel('{} (nt)'.format(qgene))
+    plt.ylabel('{} (nt)'.format(qgene))
+
+    plt.tight_layout()
+    plt.axis('scaled')
+    plt.savefig('{}.{}.1.png'.format(fig_prefix, qgene))
+    plt.close()
+    plt.figure(figsize=(6, 6), dpi=300)
+    comp_dot = [[], []]
+    for qpos, rpos in kmer_dict.values():
+        if not rpos:
+            continue
+        comp_dot[0].extend(qpos * len(rpos))
+        comp_dot[1].extend([p for p in rpos for q in qpos])
+    for qlocs in rec_dict:
+        for (qs, qe) in qlocs:
+            plt.axhspan(qs, qe, color='lightgrey', alpha=.5)
+    plt.scatter(comp_dot[1], comp_dot[0], s=2,
+                color='black', edgecolor='None', label='Self')
+    plt.xlabel('{} {} (nt)'.format(rstrain, qgene))
+    plt.ylabel('{} {} (nt)'.format(qstrain, qgene))
+
+    plt.tight_layout()
+    plt.axis('scaled')
+    plt.savefig('{}.{}.2.png'.format(fig_prefix, qgene))
+    plt.close()
+
+
+def draw_recombine_compare_group(query_dict: dict, ref_dict: dict, ksize: int, rec_blast_fn: str,
+                                 fig_prefix: str, query_strain: str, ref_strain: str, min_region: int):
+    # Load recombined regions
+    rec_region = {}
+    with open(rec_blast_fn) as filep:
+        next(filep)
+        for line in filep:
+            ent = line.split(',')
+            qgene = ent[1]
+            qregion = ent[-2].split(';')
+            qsize = int(qregion[0].split(':')[-1])
+            if qsize <= min_size:
+                continue
+            rgene = ent[-1].split(':')[0]
+            rec_region.setdefault(qgene, {})
+            tmp = []
+            for qreg in qregion:
+                qreg = qreg.split(':')[0]
+                s, e = qreg.split('-')
+                s = int(s) - 1
+                e = int(e)
+                tmp.append((s, e))
+            rec_region[qgene][tuple(tmp)] = rgene
+    for qgene, qseq in query_dict.items():
+        if qgene not in rec_region:
+            continue
+        if qgene not in ref_dict:
+            continue
+        rec_dict = rec_region[qgene]
+        rseq = ref_dict[qgene]
+        draw_recombine_compare(
+            qgene=qgene,
+            qseq=qseq,
+            rseq=rseq,
+            ksize=ksize,
+            rec_dict=rec_dict,
+            fig_prefix=fig_prefix,
+            qstrain=query_strain,
+            rstrain=ref_strain)
+
+
+def orfeome_comparison(query_fn: str, ref_fn: str, window_first: int,
+                       window_second: int, homo_orf_pair: dict,
+                       assign_fig_dir='', compare_fig_dir='', result_prefix='out',
+                       fig_prefix='Out',
+                       comp_top=3, skip_novel=True):
+    recombine_db = []
+    # Load ORFeomes
+    query_orfs = simple_fasta_load(query_fn)
+    ref_orfs = simple_fasta_load(ref_fn)
+
+    for gene, qseq in query_orfs.items():
+        if gene not in homo_orf_pair:
+            continue
+        homo_gene = homo_orf_pair[gene]
+        if skip_novel:
+            # Skip novel genes
+            if gene not in homo_gene:
+                continue
+        # Skip gene with no extra homologs
+        if len(homo_gene) == 1:
+            continue
+
+        # First round assignment
+        ref_dict = {g: ref_orfs[g] for g in homo_gene}
+        rkmer_dict, rid_dict = gen_ref_gene_dict_inter(
+            ref_dict, window=window_first)
+        ap, _, _ = determine_recombine_bidirect(
+            seq=qseq,
+            rkmer_dict=rkmer_dict,
+            window=window_first,
+            step=1
+        )
+        if not ap or np.sum(ap[0]) == 0:
+            continue
+        ref_genes = [rid_dict[id_] for id_ in np.where(ap[0])[0]]
+        # Skip gene with no recombination
+        if len(ref_genes) == 1 and gene == ref_genes[0]:
+            continue
+        ref_dict = {g: ref_orfs[g] for g in ref_genes}
+        # Second round assignment
+        rkmer_dict, rid_dict = gen_ref_gene_dict_inter(
+            ref_dict, window=window_second)
+        ap, kmer_ratio, kmer_count = determine_recombine_bidirect(
+            seq=qseq,
+            rkmer_dict=rkmer_dict,
+            window=window_second,
+            step=1
+        )
+        # draw assign
+        if assign_fig_dir:
+            draw_bidirect_gene_assign(assign_path=ap, rgene_id=rid_dict, gene=gene,
+                                      length=len(qseq),
+                                      figname='{}/{}.{}'.format(
+                                          assign_fig_dir, fig_prefix, gene),
+                                      share_cur_ratio=kmer_ratio)
+        # draw dotplot
+        if compare_fig_dir and gene in homo_gene:
+            draw_gene_assign_dotplot(assign_path=ap, rgene_id=rid_dict, gene=gene, rkmer_dict=rkmer_dict,
+                                     figname='{}/{}.{}'.format(
+                                         compare_fig_dir, fig_prefix, gene),
+                                     qseq=qseq, rseqs=ref_dict, oseq=query_orfs[gene], oname=gene,
+                                     min_rec=window_second+1, top=comp_top, ksize=window_second)
+
+        # Generate minimum recombination regions and homology regions
+        for region in ap[1:]:
+            start, end, assign = region
+            # Min recombination region
+            if assign[1] is None:
+                reg_type = 'Recombination'
+                ref_ids = np.nonzero(assign[0])[0]
+                ref_genes = [rid_dict[id_] for id_ in ref_ids]
+                ref_genes.sort()
+                recombine_db.append({
+                    'QueryGene': gene,
+                    'RefGene': ';'.join(ref_genes),
+                    'Start': start,
+                    'End': end,
+                    'Type': reg_type
+                })
+            # Homology region
+            else:
+                reg_type = 'Homologous_Flanking'
+                for_ids = np.nonzero(assign[0])[0]
+                rev_ids = np.nonzero(assign[1])[0]
+                for_genes = [rid_dict[id_] for id_ in for_ids]
+                rev_genes = [rid_dict[id_] for id_ in rev_ids]
+                for_genes.sort()
+                rev_genes.sort()
+                recombine_db.append({
+                    'QueryGene': gene,
+                    'RefGene': ';'.join(for_genes) + '|' + ';'.join(rev_genes),
+                    'Start': start,
+                    'End': end,
+                    'Type': reg_type
+                })
+    tmp_db = pd.DataFrame(recombine_db,
+                          columns=['QueryGene', 'Start', 'End', 'Type', 'RefGene'])
+    tmp_db.to_csv('{}.raw.csv'.format(result_prefix))
+    tmp_dict = {}
+    # Load recombination based on qgene
+    for ent in recombine_db:
+        gene = ent['QueryGene']
+        tmp_dict.setdefault(gene, [])
+        tmp_dict[gene].append(ent)
+    for query, entries in tmp_dict.items():
+        for i, ent in enumerate(entries):
+            query, start, end, tp, ref = [ent[c] for c in [
+                'QueryGene', 'Start', 'End', 'Type', 'RefGene']]
+            # Check conflict
+            # The homologous flanking with no associated recombination region
+            is_conflict = True
+            pre = None
+            ne = None
+            if tp == 'Homologous_Flanking':
+                # Check left
+                if i != 0:
+                    pre = entries[i - 1]
+                    if pre['Type'] == 'Recombination':
+                        pre_ref = pre['RefGene']
+                        if pre_ref in ref.split('|')[0]:  # downstream flanking
+                            is_conflict = False
+                if is_conflict and i != len(entries) - 1:
+                    ne = entries[i + 1]
+                    if ne['Type'] == 'Recombination':
+                        ne_ref = ne['RefGene']
+                        if ne_ref in ref.split('|')[1]:  # upstream flanking
+                            is_conflict = False
+                if is_conflict:
+                    entries[i]['Type'] = 'Recombination'
+                    entries[i]['RefGene'] = ';'.join(
+                        entries[i]['RefGene'].split('|'))
+
+    # Update recombination table
+    recombine_db = [ent for _, entries in sorted(
+        tmp_dict.items()) for ent in entries]
+
+    # # Save recombination table
+    recombine_db = pd.DataFrame(recombine_db, columns=[
+                                'QueryGene', 'Start', 'End', 'Type', 'RefGene'])
+    # recombine_cbs_bg2_max = pd.DataFrame(recombine_cbs_bg2_max, columns=['QueryGene', 'Start', 'End', 'Type', 'RefGene'])
+    recombine_db.to_csv('{}.process.conflict.csv'.format(result_prefix))
+
+    # save sequence
+    recombine_cdna = []
+    for entry in recombine_db.itertuples():
+        if entry.Type != 'Recombination':
+            continue
+        qname = entry.QueryGene
+        rnames = entry.RefGene.split(';')
+        if qname in rnames:
+            continue
+        start = entry.Start
+        end = entry.End + window_second
+        seq = query_orfs[qname][start: end]
+        sname = '{}:{}-{}:{}'.format(qname, start+1, end, end - start)
+        recombine_cdna.append((sname, seq))
+
+    names, seqs = zip(*recombine_cdna)
+    simple_fasta_write('{}.cdna.fa'.format(result_prefix), names, seqs)
+    return recombine_db
