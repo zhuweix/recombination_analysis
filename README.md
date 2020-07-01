@@ -48,7 +48,7 @@ Each query sequence is separated into minimal recombination regions (including n
   
   Homologous flanking regions are regions between the minimal recombination regions and the non-recombined regions. By definition, all the shared k-mers between the query sequence and the reference sequences are shared between the query sequence in the query strain, the orthologue sequence and the recombined paralogues. Therefore, this region is shared between the orthologue and the recombined paralogue for NAHR.
   
-  The homologous flanking regions can also occur between two minimal recombination regions, which indicate an NAHR event between the two (sets of) parlogues associated with the two regions. Similarly, all the shared k-mers within these regions are shared between the query, and the two (sets) of paralogues.
+  The homologous flanking regions can also occur between two minimal recombination regions, which indicate an NAHR event between the two (sets of) parlogues associated with the two regions. Similarly, all the shared k-mers within these regions are shared between the query, and the two (sets of) paralogues.
   
 </p>
   
