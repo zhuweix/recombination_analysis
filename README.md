@@ -81,11 +81,16 @@ Each query sequence is separated into minimal recombination regions (including n
   </ol>
   After the forward scanning, we obtained the start locations of all the minimal recombination regions (as well as the non-recombined regions as the special case).
   
+  
   <li> Backward scanning </li>
   
   We performed similar scanning from the 3' end, and obtained the end locations of  all the minimal recombination regions (as well as the non-recombined regions as the special case).
   
   <li> Combination of forward and backward scanning to identify minimal recombination regions, non-recombined regions and the homologous flanking regions. </li>
+  
+  The forward scaning identifies recombination regions separated with the start locations of the minimal recombination regions, therefore, they are constituted with two parts: The left part is the minimal recombination region, and the right part is the homologous flanking region. Similarly, backward scanning identifies recombination regions separated with the end locations of the minimal recombination regions, therefore, they are constituted with two parts: The left part is the homologous flanking region and the right part is the minimal recombination region. 
+  
+  When we intersect the two sets of recombination regions, the forward and backward recombination regions identifying the same NAHR event will associated with the same (or at least one shared) reference genes, and the overlap of the two regions define the minimal recombination region; In contrast, the forward and backward recombination regions identifying the recombined region and the adjacent non-recombined regions are associated with different reference genes, thus, the overlap of the two regions define the homologous flanking region.
   </ol>
   
   
