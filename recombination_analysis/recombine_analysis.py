@@ -1,4 +1,5 @@
 from .biofile_func import simple_fasta_load
+from .biofile_func import simple_fasta_write
 import os
 import sys
 from bitarray import bitarray as bbitarray
@@ -282,11 +283,13 @@ def draw_bidirect_gene_assign(assign_path: list, rgene_id: dict, gene: str, leng
         length (int): length of the query sequence
         figname (str): name of the plot.
         share_cur_ratio (list): ratios of shared k-mers to all the k-mers in each region
+    Returns
+        None. Output is the figure with figname.
    
     '''
 
     cmap = cm.get_cmap('tab10')
-    fig = plt.figure(figsize=(6.5, 6.5), dpi=300)
+    plt.figure(figsize=(6.5, 6.5), dpi=300)
 
     text_pad = 10
     ax = plt.subplot2grid((12, 1), (0, 0))
@@ -344,7 +347,27 @@ def draw_bidirect_gene_assign(assign_path: list, rgene_id: dict, gene: str, leng
 def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str, rkmer_dict: str,
                              figname: str, qseq: str, rseqs: dict, oseq: str, oname: str, 
                              min_rec: int, top=0, ksize=30):
-
+    '''
+    Draw the NAHR event using dotplot
+    Args:
+        assign_path (list): Miminal recombination regions and homologous flanking regions. Generated from determine_recombine_bidirect or merge_direct_assign
+                    [All_assigned_reference (bitarray), [start (int), end (int), region_assignment (list)] (Region 1), (Region 2), ...]
+                    region_assignment (list):   minimal recombination region: [assigned_reference (bitarray), None]
+                                                homologous flanking region: [assigned_reference_left (bitarray), assigned_reference_right (bitarray)]
+        rgene_id (dict): reference gene dictionary {loc: gene}. Loction of the reference gene in the bitarray.
+        kkmer_dict (dict): reference k-mer dictionary
+        gene (str): name of the query sequence
+        figname (str): prefix of the name of the plots.
+        qseq (str): query sequence.
+        rseqs (dict): Dictionary of reference sequences {ref_name: ref_sequence}        
+        oseq (str): ortholog sequence
+        oname (str): ortholog name
+        min_rec (int): Minimal Length for minimal recombination regions to be illustrated
+        top (int): The top N paralogs (sorted by length of the minimal recombination regions)
+        ksize (int): k-mer size for the dotplot
+    Returns:
+        None. The outplot is the figure with prefix of the figname.
+    '''
     assigned_ref_ids = np.nonzero(assign_path[0])[0]
     assigned_ref_ids = {id_: i for i, id_ in enumerate(assigned_ref_ids)}
     assigned_ref_gene = {i: rgene_id[id_]
@@ -358,7 +381,6 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str, rkmer_dict:
     rec_locations = []
     homo_locations = []  
     self_id = [i for i, name in assigned_ref_gene.items() if name == gene][0]
-    total = len(assigned_ref_ids)
     length = len(qseq)
     
     for i, p in enumerate(assign_path[1:]):
@@ -603,6 +625,23 @@ def draw_gene_assign_dotplot(assign_path, rgene_id: dict, gene: str, rkmer_dict:
 
 def draw_recombine_compare(qgene: str, qseq: str, rseq: str, ksize: int,
                            rec_dict: dict, qstrain: str, rstrain: str, fig_prefix='out'):
+    '''
+    Draw Dotplot comparison between the query sequence and the orthologue sequence.
+    Args:
+        qgene (str): name of the query sequence.
+        qseq (str): query sequence.
+        rseq (str): orthologue sequence.
+        ksize (int): k-mer size for plotting.
+        rec_dict (dict): reference k-mer dictionary.
+        qstrain (str): name of the query strain.
+        rstrain (str): name of the reference strain.
+        fig_prefix (str): prefix of the figname.
+    Returns:
+        None. The output is the dotplot with the fig_prefix as prefix of the figure name.
+
+    '''
+    
+    
     qseq = qseq.upper()
     rseq = rseq.upper()
     kmer_dict = {}
@@ -672,7 +711,24 @@ def draw_recombine_compare(qgene: str, qseq: str, rseq: str, ksize: int,
 
 
 def draw_recombine_compare_group(query_dict: dict, ref_dict: dict, ksize: int, rec_blast_fn: str,
-                                 fig_prefix: str, query_strain: str, ref_strain: str, min_region: int):
+                                 fig_prefix: str, query_strain: str, ref_strain: str, min_size: int):
+    '''
+    Draw dotplot comparison between the query gene and the orthologue for a group of genes.
+    Args:
+        query_dict (dict): query sequences {query_gene: query_sequence}.
+        ref_dict (dict): reference sequences {reference_gene: reference_sequence}.
+        ksize (int): k-mer size for dotplot.
+        rec_blast_fn (str): blastn alignment file between the minial recombination regions (identified from orfeome comparison function) and the reference sequences.
+                            blastn alignment file is the outfmt 6 output from local blastn software.
+        fig_prefix (str): prefix of the output figures.
+        query_strain (str): name of the query strain.
+        ref_strain (str): name of the reference strain.
+        min_size (int): minimal size of the minial recombination regions to be plotted.
+    Returns:
+        None. The outplot are dotplots with the prefix of fig_prefix
+        
+    '''
+    
     # Load recombined regions
     rec_region = {}
     with open(rec_blast_fn) as filep:
@@ -712,16 +768,58 @@ def draw_recombine_compare_group(query_dict: dict, ref_dict: dict, ksize: int, r
             rstrain=ref_strain)
 
 
+def load_orf_homolog_pair(fn: str):
+    '''
+    Load homologous gene pairs.
+    The homolgous gene pairs are stored in a tab-separated values (tsv) file. The orthologous gene pair, if any, must be included as a pair with the same name.
+    Args:
+        fn (str): name of the tsv file
+    Returns:
+        homo_pair (dict): Homologous gene pairs. {gene: [list of homologous gene]} The orhologous gene, if any, is also in the list with the same name.
+    '''
+    homo_pair = {}
+    with open(fn) as filep:
+        for line in filep:
+            gene1, gene2 = line.split()
+            homo_pair.setdefault(gene1, [])
+            homo_pair[gene1].append(gene2)
+    for gene1 in homo_pair:
+        homo_pair[gene1] = set(homo_pair[gene1])
+    return homo_pair
+
+
 def orfeome_comparison(query_fn: str, ref_fn: str, window_first: int,
-                       window_second: int, homo_orf_pair: dict,
+                       window_second: int, homo_pair_fn: str,
                        assign_fig_dir='', compare_fig_dir='', result_prefix='out',
                        fig_prefix='Out',
                        comp_top=3, skip_novel=True):
+    """
+    Identification of NAHR events between the query orfeomes and the reference orfeomes.
+    Args:
+        query_fn: Fasta file with the query sequences.
+        ref_fn: Fasta file with reference sequences.
+        window_fist (int): k-mer size of the first round NAHR identification.
+        window_second (int): k-mer size of the second round NHAR identification.
+        assign_fig_dir (str): Dir name of the NAHR assignment figures. If empty, no figures will be generated.
+        compare_fig_dir (str): Dir name of the dotplot comparison for NAHR. If empty, no figures will be generated.
+        resulf_prefix (str): prefix of the NAHR identification files.
+        fig_prefix (str): prefix of the figures.
+        com_top (int): Top N recombined paralogues to be illustrated for dotplot comparison.
+        skip_novel=True: Skip ORFs with no orthologue in reference. Dotplot comparison REQUIRES orthologue, the comparison figure will SKIP genes without orthologous even if skip_novel=False.
+    Returns:
+        recombine_db (pandas dataframe): Pandas dataframe of the minimal recombination regions and the homologous flanking regions 
+        The identified NHAR events are stored with prefix result_prefix; the figures are stored with [assign_fig_dir]/fig_prefix and [compare_fig_dir]/fig_prefix
+        NHAR files:
+        [result_prefix].raw.csv: raw regions of NAHR
+        [result_prefix].process.conflict.csv: regions resolved for conflict assignments of forward and backward scanning.
+        [result_prefix].cdna.fa: minimal recombination regions from [result_prefix].process.conflict.csv
+    """                       
     recombine_db = []
     # Load ORFeomes
     query_orfs = simple_fasta_load(query_fn)
     ref_orfs = simple_fasta_load(ref_fn)
-
+    # Load homologous gene pairs
+    homo_orf_pair = load_orf_homolog_pair(homo_pair_fn)
     for gene, qseq in query_orfs.items():
         if gene not in homo_orf_pair:
             continue
@@ -816,7 +914,7 @@ def orfeome_comparison(query_fn: str, ref_fn: str, window_first: int,
         gene = ent['QueryGene']
         tmp_dict.setdefault(gene, [])
         tmp_dict[gene].append(ent)
-    for query, entries in tmp_dict.items():
+    for _, entries in tmp_dict.items():
         for i, ent in enumerate(entries):
             query, start, end, tp, ref = [ent[c] for c in [
                 'QueryGene', 'Start', 'End', 'Type', 'RefGene']]
