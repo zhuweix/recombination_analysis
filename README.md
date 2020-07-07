@@ -118,8 +118,8 @@ orfeome_comparison(
 
 Arguments:
 
-- query_fn: fasta file with the query sequences.
-- ref_fn: fasta file with reference sequences.
+- query_fn (str): fasta file with the query sequences.
+- ref_fn (str): fasta file with reference sequences.
 - homo_pair_fn (str):  name of the tsv file for homologous gene pairs.
 - window_fist (int): k-mer size of the first round NAHR identification.
 - window_second (int): k-mer size of the second round NHAR identification.
