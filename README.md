@@ -1,9 +1,8 @@
-## Analysis of the non-allelic homologous recombination events using a k-mer counting approach
+# Analysis of the non-allelic homologous recombination events using a k-mer counting approach
 
 This package aims to predict non-allelic homologous recombination (NAHR) events in ORFs and other genetic elements between genomes.
 
-
-**Prerequisite**
+## Prerequisite
 
 matplotlib
 
@@ -13,18 +12,18 @@ pandas
 
 bitarray
 
-**How to identify NAHR events**
+## How to identify NAHR events
 
 For each query sequence in query strain, we identified sequence variations ratlive to the orthologue sequence in the reference strain. We speculate that NAHR between the orthologue and the paralogue(s) in the referenence strain lead to sequence variations that shared between the query sequence and the paralogous sequence(s) rather than the orthologous sequence. On the contrary, sequence mutations between the orthologue and the query gene do not lead to shared variations between the query and the orthologue(s).
 
 We identified the shared sequence variations using k-mers. For each query sequence and all the reference sequences homologous to the query sequence, we performed k-mer counting. K-mers which are shared with only between the query and the paralog, but not with the corresponding ortholog in reference, indicate shared sequence variations, therefore, indicating NAHR events.
 
 
-**What is the input of the analysis**
+## What is the input of the analysis
 
 We need the sequences of query genes, and the sequences of reference genes, and the table of the homologous pairs between query genes and reference genes. The orthologue of the query gene in the reference genes must have the same name with the query gene. Our package can omit the requirement for orthologue for NAHR identification. However, the orthologue is required to draw the dotplot illustration of NAHR events.
 
-**Gerenal Model for NAHR identification**
+## Gerenal Model for NAHR identification
 
 <details>
   <summary>Click for details</summary>
@@ -56,7 +55,7 @@ Each query sequence is separated into minimal recombination regions (including n
   
 </details>
 
-**Bi-directional k-mer scanning to identify recombination regions**
+## Bi-directional k-mer scanning to identify recombination regions
 
 <details>
   <summary>Click for details</summary>
@@ -92,13 +91,42 @@ Each query sequence is separated into minimal recombination regions (including n
   
   When we intersect the two sets of recombination regions, the forward and backward recombination regions identifying the same NAHR event will associated with the same (or at least one shared) reference genes, and the overlap of the two regions define the minimal recombination region; In contrast, the forward and backward recombination regions identifying the recombined region and the adjacent non-recombined regions are associated with different reference genes, thus, the overlap of the two regions define the homologous flanking region.
   </ol>
-  
-  
-  
-  
-  
+
   
   
 </details>
   
-  
+## Integrate Method for two-step NAHR prediction between strains
+
+We used a two-step idenfication procedure in the integrate method. We first performed the NAHR identification using the references sequences in the provided homology pair file using the k-mer_size_first; then, we performed a second round of NAHR identification with the recombined paralogs identified in the first step using the second k-mer_size_second to refine the NAHR identification. Note that k-mer_size_first > k-mer_size_second, otherwise, it is no different from one-step identifcation using k-mer_size_second.
+
+The integrate method:
+
+```
+orfeome_comparison(
+  query_fn: str, 
+  ref_fn: str, 
+  homo_pair_fn: str,  
+  window_first: int,
+  window_second: int, 
+  assign_fig_dir='', 
+  compare_fig_dir='', 
+  result_prefix='out',
+  fig_prefix='Out',
+  comp_top=3, skip_novel=True)
+```                 
+
+Arguments:
+
+- query_fn: fasta file with the query sequences.
+- ref_fn: fasta file with reference sequences.
+- homo_pair_fn (str):  name of the tsv file for homologous gene pairs.
+- window_fist (int): k-mer size of the first round NAHR identification.
+- window_second (int): k-mer size of the second round NHAR identification.
+- assign_fig_dir (str): dir name of the NAHR assignment figures. If empty, no figures will be generated.
+- compare_fig_dir (str): dir name of the dotplot comparison for NAHR. If empty, no figures will be generated.
+- resulf_prefix (str): prefix of the NAHR identification files.
+- fig_prefix (str): prefix of the figures.
+- com_top (int): Top N recombined paralogues to be illustrated for dotplot comparison.
+- skip_novel=True: Skip ORFs with no orthologue in reference. Dotplot comparison REQUIRES orthologue, the comparison figure will SKIP genes without orthologous even if skip_novel=False.
+
