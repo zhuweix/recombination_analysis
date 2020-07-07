@@ -796,12 +796,13 @@ def orfeome_comparison(query_fn: str, ref_fn: str, window_first: int,
     """
     Identification of NAHR events between the query orfeomes and the reference orfeomes.
     Args:
-        query_fn: Fasta file with the query sequences.
-        ref_fn: Fasta file with reference sequences.
+        query_fn (str): fasta file with the query sequences.
+        ref_fn (str): fasta file with reference sequences.
+        homo_pair_fn (str): name of the tsv file for homologous gene pairs.
         window_fist (int): k-mer size of the first round NAHR identification.
         window_second (int): k-mer size of the second round NHAR identification.
-        assign_fig_dir (str): Dir name of the NAHR assignment figures. If empty, no figures will be generated.
-        compare_fig_dir (str): Dir name of the dotplot comparison for NAHR. If empty, no figures will be generated.
+        assign_fig_dir (str): dir name of the NAHR assignment figures. If empty, no figures will be generated.
+        compare_fig_dir (str): dir name of the dotplot comparison for NAHR. If empty, no figures will be generated.
         resulf_prefix (str): prefix of the NAHR identification files.
         fig_prefix (str): prefix of the figures.
         com_top (int): Top N recombined paralogues to be illustrated for dotplot comparison.
