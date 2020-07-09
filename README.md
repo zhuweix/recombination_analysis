@@ -2,7 +2,7 @@
 
 This package aims to predict non-allelic homologous recombination (NAHR) events in ORFs and other genetic elements between genomes.
 
-## Prerequisite
+## Requirements
 
 matplotlib
 
